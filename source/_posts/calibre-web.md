@@ -5,6 +5,10 @@ excerpt: 用docker搭建私人在线图书馆，nginx反向代理
 categories: 图书馆
 tags: [docker, nginx, calibre]
 ---
+{% note warning %}
+非详细教程，自用
+{% endnote %}
+
 项目地址：
 
 https://github.com/linuxserver/docker-calibre-web
