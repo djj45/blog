@@ -1,6 +1,6 @@
 ---
 title: 搭建自己的在线图书馆
-date: 2022-1-25 20:55:00
+date: 2022-1-1 20:55:00
 excerpt: 用docker搭建私人在线图书馆，nginx反向代理
 categories: 图书馆
 tags: [docker, nginx, calibre]
