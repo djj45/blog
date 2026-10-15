@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.preview/
+.DS_Store
+
+# 文章只保存在本地，不提交到仓库；示例文章除外
+posts/*
+!posts/hello-world.md
+!posts/markdown-guide/

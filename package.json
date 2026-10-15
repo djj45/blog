@@ -1,0 +1,19 @@
+{
+  "name": "blog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "轻量静态博客：Markdown → 简洁网页",
+  "scripts": {
+    "dev": "node lib/dev.js",
+    "build": "node lib/build.js",
+    "new": "node lib/new.js"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
