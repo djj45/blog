@@ -7,6 +7,9 @@ export default {
 
   author: 'djj45',
 
+  // 正式域名，用于 canonical、Open Graph 和 sitemap；子路径单独配置 base
+  siteUrl: 'https://djj45.cn',
+
   // 部署在子路径时修改，例如 GitHub Pages 项目站点 https://用户名.github.io/blog/ → '/blog/'
   base: '/',
 

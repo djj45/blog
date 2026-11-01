@@ -35,9 +35,12 @@ const THEME_BUTTON = `<button class="theme-toggle" type="button" aria-label="切
         <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>
       </button>`;
 
-function layout(ctx, { title, description, path = '', body, scripts = [] }) {
+function layout(ctx, { title, description, path = '', body, scripts = [], article = null, noindex = false }) {
   const { site, url, esc } = ctx;
   const here = url(path);
+  const canonical = noindex ? '' : ctx.canonical(path);
+  const pageTitle = title ? `${title} - ${site.title}` : site.title;
+  const summary = description || site.description;
   const nav = site.nav
     .map((n) => {
       const href = url(n.link);
@@ -65,13 +68,21 @@ function layout(ctx, { title, description, path = '', body, scripts = [] }) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title ? `${esc(title)} - ${esc(site.title)}` : esc(site.title)}</title>
-  <meta name="description" content="${esc(description || site.description)}">
+  <title>${esc(pageTitle)}</title>
+  <meta name="description" content="${esc(summary)}">
+  ${noindex ? '<meta name="robots" content="noindex, follow">' : ''}
+  ${canonical ? `<link rel="canonical" href="${esc(canonical)}">\n  <meta property="og:url" content="${esc(canonical)}">` : ''}
+  <meta property="og:type" content="${article ? 'article' : 'website'}">
+  <meta property="og:title" content="${esc(pageTitle)}">
+  <meta property="og:description" content="${esc(summary)}">
+  <meta property="og:site_name" content="${esc(site.title)}">
+  <meta property="og:locale" content="${esc(site.lang.replace('-', '_'))}">
+  ${article ? `<meta property="article:published_time" content="${esc(article.date.toISOString())}">` : ''}
   ${site.author ? `<meta name="author" content="${esc(site.author)}">` : ''}
   ${THEME_SCRIPT}
-  <link rel="stylesheet" href="${url('style.css')}?v=${ctx.version}">
+  <link rel="stylesheet" href="${esc(ctx.asset('style.css'))}">
   <link rel="icon" href="${url('favicon.svg')}" type="image/svg+xml">
-  ${scripts.map((s) => `<script src="${url(s)}?v=${ctx.version}" defer></script>`).join('\n  ')}
+  ${scripts.map((s) => `<script src="${esc(ctx.asset(s))}" ${s === 'search.js' ? 'type="module"' : 'defer'}></script>`).join('\n  ')}
 </head>
 <body>
   <header class="site-header">
@@ -174,7 +185,7 @@ ${p.html}
   </article>`;
   // search.js：从搜索结果点进来时（网址带 ?q=）高亮并跳到命中位置
   const scripts = toc ? ['toc.js', 'search.js'] : ['search.js'];
-  return layout(ctx, { title: p.title, description: p.description, path: p.path, body, scripts });
+  return layout(ctx, { title: p.title, description: p.description, path: p.path, body, scripts, article: p, noindex: p.draft });
 }
 
 /* ---------- 独立页面（pages/ 目录） ---------- */
@@ -183,13 +194,13 @@ export function page(ctx, p) {
   const { esc } = ctx;
   const body = `  <article>
     <header class="post-header">
-      <h1>${esc(p.title)}</h1>
+      <h1>${esc(p.title)}${draftBadge(p)}</h1>
     </header>
     <div class="prose">
 ${p.html}
     </div>
   </article>`;
-  return layout(ctx, { title: p.title, description: p.description, path: p.path, body, scripts: ['search.js'] });
+  return layout(ctx, { title: p.title, description: p.description, path: p.path, body, scripts: ['search.js'], noindex: p.draft });
 }
 
 /* ---------- 标签页 ---------- */
@@ -225,13 +236,13 @@ ${sections}`
 export function search(ctx) {
   const { url } = ctx;
   const body = `  <h1 class="page-title">搜索</h1>
-  <form class="search" role="search" data-index="${url('search.json')}?v=${ctx.version}" data-tags="${url('tags/')}">
+  <form class="search" role="search" data-index="${ctx.esc(ctx.asset('search.json'))}" data-tags="${url('tags/')}">
     <input type="search" name="q" placeholder="搜索标题、标签或正文" aria-label="搜索文章" autocomplete="off" autofocus>
   </form>
   <p class="search-status" aria-live="polite"></p>
   <ol class="search-results"></ol>
   <noscript><p class="empty">搜索需要浏览器开启 JavaScript。</p></noscript>`;
-  return layout(ctx, { title: '搜索', path: 'search/', body, scripts: ['search.js'] });
+  return layout(ctx, { title: '搜索', path: 'search/', body, scripts: ['search.js'], noindex: true });
 }
 
 /* ---------- 404 ---------- */
@@ -241,5 +252,5 @@ export function notFound(ctx) {
     <h1 class="page-title">404</h1>
     <p>这个页面不存在，可能已被移动或删除。<a href="${ctx.url()}">回到首页</a></p>
   </div>`;
-  return layout(ctx, { title: '页面不存在', body });
+  return layout(ctx, { title: '页面不存在', path: '404.html', body, noindex: true });
 }

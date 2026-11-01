@@ -4,29 +4,11 @@
 //   2. 文章页：网址带 ?q=关键词&i=第几处 时，高亮正文里所有命中，滚动到第 i 处，
 //      右下角出现一个小条，可以上下切换或清除高亮。
 // 多个关键词用空格分开；中文直接按字匹配，不需要分词。
+import { collectText, findHits, hitPieces, parseTerms } from './text.js';
+
 (() => {
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
-  const parseTerms = (q) => [...new Set(q.toLowerCase().split(/\s+/).filter(Boolean))];
-
-  // 在小写文本里找出所有关键词的位置，按先后排序并去掉重叠，返回 [[开始, 结束], …]
-  // 搜索页和文章页用同一套规则计数，所以“第 i 处”能一一对应
-  function findHits(lower, terms) {
-    const all = [];
-    for (const t of terms) {
-      for (let i = lower.indexOf(t); i > -1; i = lower.indexOf(t, i + t.length)) all.push([i, i + t.length]);
-    }
-    all.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
-    const hits = [];
-    let end = -1;
-    for (const h of all) {
-      if (h[0] >= end) {
-        hits.push(h);
-        end = h[1];
-      }
-    }
-    return hits;
-  }
 
   const params = new URLSearchParams(location.search);
   if (document.querySelector('.search')) searchPage();
@@ -87,7 +69,7 @@
           score += (inTitle ? 10 : 0) + (inTags ? 5 : 0) + (inText ? 1 : 0);
         }
         if (!score) continue;
-        const hits = findHits(d.lowerText, terms);
+        const hits = findHits(d.text, terms);
         results.push({ d, hits, score: score + Math.min(hits.length, 20) * 0.05 });
       }
       results.sort((a, b) => b.score - a.score || b.d.date.localeCompare(a.d.date));
@@ -106,7 +88,7 @@
         if (i > 0) u.searchParams.set('i', i);
         return esc(u.pathname + u.search);
       };
-      const title = `<a class="result-title" href="${hits.length ? link(0) : esc(d.url)}">${mark(d.title, findHits(d.lowerTitle, terms))}</a>`;
+      const title = `<a class="result-title" href="${hits.length ? link(0) : esc(d.url)}">${mark(d.title, findHits(d.title, terms))}</a>`;
 
       // 每篇最多列 3 段；相邻的命中合并在同一段里
       const parts = [];
@@ -163,31 +145,18 @@
     const root = document.querySelector('.prose');
     if (!root) return;
 
-    // 拼出正文纯文本（跳过标题旁的 # 和脚注返回箭头，与搜索索引一致）
-    const nodes = [];
-    let text = '';
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (n) => (n.parentElement.closest('.anchor, .fn-back') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
-    });
-    for (let n; (n = walker.nextNode()); ) {
-      nodes.push({ node: n, start: text.length, len: n.data.length });
-      text += n.data;
-    }
-
-    const hits = findHits(text.toLowerCase(), parseTerms(q));
+    const { text, positions } = collectText(root);
+    const hits = findHits(text, parseTerms(q));
     if (!hits.length) return;
 
     // 从后往前包 <mark>，一处命中跨多个元素时会拆成几段
     const groups = hits.map(() => []);
     for (let h = hits.length - 1; h >= 0; h--) {
-      const [s, e] = hits[h];
-      for (let k = nodes.length - 1; k >= 0; k--) {
-        const { node, start, len } = nodes[k];
-        if (start >= e || start + len <= s) continue;
-        const a = Math.max(s, start) - start;
-        const b = Math.min(e, start + len) - start;
-        const piece = a > 0 ? node.splitText(a) : node;
-        if (b - a < piece.data.length) piece.splitText(b - a);
+      const pieces = hitPieces(positions, ...hits[h]);
+      for (let k = pieces.length - 1; k >= 0; k--) {
+        const { node, start, end } = pieces[k];
+        const piece = start > 0 ? node.splitText(start) : node;
+        if (end - start < piece.data.length) piece.splitText(end - start);
         const m = document.createElement('mark');
         m.className = 'hit';
         piece.parentNode.insertBefore(m, piece);
@@ -240,6 +209,6 @@
       if (e.key === 'Escape' && bar.isConnected) clear();
     });
 
-    go(Math.min(Math.max(target, 0), hits.length - 1), 'instant');
+    go(Math.min(Math.max(Math.trunc(target), 0), hits.length - 1), 'instant');
   }
 })();
